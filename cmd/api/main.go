@@ -1,15 +1,28 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"notes-api/internal/auth"
 	"notes-api/internal/handlers"
+	"os"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	// Загружаем переменные окружения
+	if err := godotenv.Load(); err != nil {
+		log.Println("Файл .env не найден, используем системные переменные")
+	}
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+
 	r := chi.NewRouter()
 
 	// Базовые middleware для всех
