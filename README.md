@@ -1,3 +1,9 @@
+## Для инициализации multipass
+Нужно запустить содержимое ``multipass-init.sh`` и просмотреть IP
+```bash
+ multipass list
+ ```
+
 Монтирование проекта к серверу api-node
 ```bash
 multipass mount . api-node:/home/ubuntu/app
@@ -38,8 +44,42 @@ sudo docker-compose up -d
    * Вкладка Credentials: Set password (напр. 12345), выключите Temporary.
       * Важно: Во вкладке Details очистите поле Required user actions, если там что-то есть.
       * Вкладка Role mapping: Assign role -> выберите admin.
-   
-Получение токена
+
+### Настройка Keycloak для Go-сервиса (audience "notes-api")
+
+Настройка Client Scopes
+
+1. В админке Keycloak перейди **Client Scopes** → **Create client scope**  
+   - Name: `notes-api-scope`  
+   - Protocol: `OpenID Connect`  
+2. Сохрани.  
+3. В созданном scope перейди **Mappers** → **Configure a new mapper** → выбери **Audience**  
+   - Name: `notes-api-audience`  
+   - Included Client Audience: выбери `notes-api`  
+4. Сохрани.
+
+Привязка scope к клиенту
+
+1. Clients → `notes-api` → вкладка **Client Scopes** → **Add client scope**  
+2. Выбери `notes-api-scope` → тип **Default** → **Add**
+
+Проверка клиента
+
+- Client authentication: ON  
+- Authorization: OFF  
+- Standard flow: ON  
+- Direct access grants: ON  
+
+После настройки
+
+1. Получи новый токен (старый не работает).  
+2. Проверить токен на [jwt.io](https://jwt.io) → в Payload должно быть:  
+
+```json
+"aud": "notes-api"
+```
+
+## Получение токена
 ```bash
 ~$ curl -X POST "http://10.157.62.188:8080/realms/my-project/protocol/openid-connect/token" \
      -H "Content-Type: application/x-www-form-urlencoded" \
@@ -50,7 +90,53 @@ sudo docker-compose up -d
      -d "grant_type=password"
 ```
 
-Проверка полученного токена
+Отлично! Теперь токен у тебя корректный — у него есть нужный audience (`"aud":["notes-api","account"]`) и scope для твоего API. Ниже — рабочие запросы к твоему `notes-api` с этим токеном.
+
+---
+
+### 🔹 Сохраняем токен в переменную
+
 ```bash
- curl -H "Authorization: Bearer eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI2bkxqQXhTS21lR0pNbklxTzMxTlBsWFNpQVQ2YzdNQWlaMVpXa1JxNk5vIn0.eyJleHAiOjE3NzUzODQ3NzksImlhdCI6MTc3NTM4NDQ3OSwianRpIjoiYjNiN2E3YjYtODc5ZC00Y2YzLTlkMjQtODg5Zjg4ZGI5ZjUwIiwiaXNzIjoiaHR0cDovLzEwLjE1Ny42Mi4xODg6ODA4MC9yZWFsbXMvbXktcHJvamVjdCIsImF1ZCI6ImFjY291bnQiLCJzdWIiOiJkMjUwZDc3ZC02YTQzLTRhMTUtYjUxZi0yMjYzYzI5OWNhNmMiLCJ0eXAiOiJCZWFyZXIiLCJhenAiOiJub3Rlcy1hcGkiLCJzZXNzaW9uX3N0YXRlIjoiNzZhMjZkYjktMzQ1Zi00Y2FlLTk1MDMtYjcxYWRiZTUxMzIwIiwiYWNyIjoiMSIsImFsbG93ZWQtb3JpZ2lucyI6WyIvKiJdLCJyZWFsbV9hY2Nlc3MiOnsicm9sZXMiOlsiZGVmYXVsdC1yb2xlcy1teS1wcm9qZWN0Iiwib2ZmbGluZV9hY2Nlc3MiLCJhZG1pbiIsInVtYV9hdXRob3JpemF0aW9uIl19LCJyZXNvdXJjZV9hY2Nlc3MiOnsiYWNjb3VudCI6eyJyb2xlcyI6WyJtYW5hZ2UtYWNjb3VudCIsIm1hbmFnZS1hY2NvdW50LWxpbmtzIiwidmlldy1wcm9maWxlIl19fSwic2NvcGUiOiJlbWFpbCBwcm9maWxlIiwic2lkIjoiNzZhMjZkYjktMzQ1Zi00Y2FlLTk1MDMtYjcxYWRiZTUxMzIwIiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ0ZXN0dXNlciIsImdpdmVuX25hbWUiOiIiLCJmYW1pbHlfbmFtZSI6IiJ9.oYvvDE2BkJqyh3lLfJItNbB-TsRqmkXSehlbfMOUpx9PLCIstbQZWGb6VQayo-MhreVqrA5Z_h4S6_AdyqeUWO_ZOSSX0VwN8jnIr9GexjNdkbYEtRyJjiQQzTe06cimUGMpPq1I--0xg2wGI6QuA7yNeeaN0o_SAuBBjZRMG5ruusl-yAIKZrpqFkOSnQSiHpEcmnB_CZ8Xsqa7JM7T2IuFBH1pEhWQtzKSUY4wSfoF043K1nJzm2GeOW7h5yQVPfDSaZSFHuSq93JMKIANrHc3rPc72Vio_hFbnQyKk6uTElwI1kgdR6ZbZmwOAk20mWBeHVq24u0v4VtWFQdVgg" http://10.157.62.188:8080
- ```
+TOKEN="eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICI2bkxqQXhTS21lR0pNbklxTzMxTlBsWFNpQVQ2YzdNQWlaMVpXa1JxNk5vIn0.eyJleHAiOjE3NzUzODg4NTAsImlhdCI6MTc3NTM4ODU1MCwianRpIjoiMmU5ZjBmOTktOWEyNy00ODgzLTk4YmUtYzk3NTE5ODlkMzdlIiwiaXNzIjoiaHR0cDovLzEwLjE1Ny42Mi4xODg6ODA4MC9yZWFsbXMvbXktcHJvamVjdCIsImF1ZCI6WyJub3Rlcy1hcGkiLCJhY2NvdW50Il0sInN1YiI6ImQyNTBkNzdkLTZhNDMtNGExNS1iNTFmLTIyNjNjMjk5Y2E2YyIsInR5cCI6IkJlYXJlciIsImF6cCI6Im5vdGVzLWFwaSIsInNlc3Npb25fc3RhdGUiOiIyN2ZhN2YyOC03NmNiLTRhMzMtYWFhZC04YTYzZmQ3NTVjYjgiLCJhY3IiOiIxIiwiYWxsb3dlZC1vcmlnaW5zIjpbIi8qIl0sInJlYWxtX2FjY2VzcyI6eyJyb2xlcyI6WyJkZWZhdWx0LXJvbGVzLW15LXByb2plY3QiLCJvZmZsaW5lX2FjY2VzcyIsImFkbWluIiwidW1hX2F1dGhvcml6YXRpb24iXX0sInJlc291cmNlX2FjY2VzcyI6eyJhY2NvdW50Ijp7InJvbGVzIjpbIm1hbmFnZS1hY2NvdW50IiwibWFuYWdlLWFjY291bnQtbGlua3MiLCJ2aWV3LXByb2ZpbGUiXX19LCJzY29wZSI6ImVtYWlsIHByb2ZpbGUgbm90ZXMtYXBpLXNjb3BlIiwic2lkIjoiMjdmYTdmMjgtNzZjYi00YTMzLWFhYWQtOGE2M2ZkNzU1Y2I4IiwiZW1haWxfdmVyaWZpZWQiOmZhbHNlLCJwcmVmZXJyZWRfdXNlcm5hbWUiOiJ0ZXN0dXNlciIsImdpdmVuX25hbWUiOiIiLCJmYW1pbHlfbmFtZSI6IiJ9.BJjKgEwMQL2XXnU79XGlLAckB5k-IHtEOYAa4e4RIrWFPZPdQMpn0xwoWBtV_jk12Hz3NiLKeHQoRdQEnbNMCvKONc49DzqFmWHCyp0LKobNGgEWja0I4LYxREfNa8mxQMTO4IHdySFhZVnYS_JwODlWqg8BA4OrcB7ywE30NH696y64CBu5J908ZGXtwtDNa4Wv6sAk_rS91W4eNY4Ku3wgjqjoDsMlAeF_ueIkDfX__I8FRj51LVVHfo7vA4aheHgN-f6dr6hLxCCAjGmSQEn71ET6m3G7IMSBqR2kTz6uF9G5B3UUTT1Xhob55n-aPJMamQiMHbbmxvs93hTWqQ"
+```
+
+---
+
+### 1️⃣ Проверка `/health`
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://10.157.62.174:8000/health
+```
+
+Ожидаемый ответ:
+
+```
+Service is up
+```
+
+---
+
+### 2️⃣ GET всех заметок `/api/v1/notes`
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://10.157.62.174:8000/api/v1/notes/
+```
+
+### 3️⃣ POST новой заметки
+
+```bash
+curl -X POST http://10.157.62.174:8000/api/v1/notes/ \
+ -H "Content-Type: application/json" \
+ -H "Authorization: Bearer $TOKEN" \
+ -d '{"title":"New Note","content":"Content of the note"}'
+```
+
+### 4️⃣ DELETE заметки по `id`
+
+Допустим, `id` = `1`:
+
+```bash
+curl -X DELETE http://10.157.62.174:8000/api/v1/notes/1 \
+ -H "Authorization: Bearer $TOKEN"
+```
+
