@@ -2,6 +2,8 @@ package main
 
 import (
 	"net/http"
+	"notes-api/internal/auth"
+	"notes-api/internal/handlers"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
